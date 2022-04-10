@@ -18,9 +18,14 @@
 package invocation
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"sync"
+)
+
+import (
+	"google.golang.org/grpc/metadata"
 )
 
 import (
@@ -129,7 +134,7 @@ func (r *RPCInvocation) Attachments() map[string]interface{} {
 	return r.attachments
 }
 
-// Attachment returns the corresponding value from dubbo's attachment with the given key.
+// GetAttachmentInterface returns the corresponding value from dubbo's attachment with the given key.
 func (r *RPCInvocation) GetAttachmentInterface(key string) interface{} {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
@@ -237,6 +242,22 @@ func (r *RPCInvocation) GetAttributeWithDefaultValue(key string, defaultValue in
 		return value
 	}
 	return defaultValue
+}
+
+func (r *RPCInvocation) GetAttachmentAsContext() context.Context {
+	gRPCMD := make(metadata.MD, 0)
+	ctx := context.Background()
+	for k, v := range r.Attachments() {
+		if str, ok := v.(string); ok {
+			gRPCMD.Set(k, str)
+			continue
+		}
+		if str, ok := v.([]string); ok {
+			gRPCMD.Set(k, str...)
+			continue
+		}
+	}
+	return metadata.NewOutgoingContext(ctx, gRPCMD)
 }
 
 // /////////////////////////
